@@ -78,7 +78,7 @@ epochnum = 20000000
 #alpha=10
 
 model = flowGAN(200).cuda()
-optimizer = optim.Adam(model.parameters(), lr=1e-3)
+optimizer = optim.Adam(model.parameters(), lr=1e-4)
 
 if __name__ == "__main__":
     for epoch in range(epochnum):
