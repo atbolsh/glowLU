@@ -5,7 +5,7 @@ Model of 2D Columns distribution.
 import distribution2D as d2
 
 from nln import nLayer
-from nln import backLayer
+#from nln import backLayer
 from LU  import *
 
 from sklearn.datasets import load_boston
@@ -62,7 +62,7 @@ class flowGAN(nn.Module):
         if (type(x) == type(None)):
             x = Variable(torch.randn(n, 2)).cuda()
         x, _ = self.lin[-1].pushback(x)
-        for i in range(i, self.n):
+        for i in range(1, self.n+1):
             x, _ = self.hyp[-i].pushback(x)
             x, _ = self.lin[-1-i].pushback(x)
         return x
@@ -76,8 +76,8 @@ epochnum = 20000000
 
 #alpha=10
 
-model = flowGAN(20).cuda()
-optimizer = optim.Adam(model.parameters(), lr=1e-3)
+model = flowGAN(80).cuda()
+optimizer = optim.Adam(model.parameters(), lr=1e-2)
 
 if __name__ == "__main__":
     for epoch in range(epochnum):
@@ -89,7 +89,7 @@ if __name__ == "__main__":
 #        print(model.fc2.bias.data)
    
     
-#        xd = model.sample(batchsize)
+        xd = model.sample(batchsize)
 #        print(xd)
     
         model.train()
@@ -98,7 +98,7 @@ if __name__ == "__main__":
 #        print(xu[:10])
         print(yu[:10])
         print((math.log(2*math.pi) + lu + 0.5*torch.sum(yu*yu, 1))[:10])
-#        yd, ld = model(xd)
+        yd, ld = model(xd)
         pu = torch.exp(lu)
 #        pd = torch.exp(ld)
 #        print(pd)
@@ -106,7 +106,7 @@ if __name__ == "__main__":
 #        loss = L(yu, target)#/batchsize # + torch.sum(ld)
         loss = 0 - torch.sum(lu) #/batchsize # + torch.sum(ld)
 
-        print('loss = ' + str(loss))
+        print('adversarial dif = ' + str(loss + torch.sum(ld)))
         loss.backward()
         
         optimizer.step()
@@ -122,7 +122,7 @@ if __name__ == "__main__":
         print('\n\n\n')
 
         if epoch%100 == 0:
-            torch.save(model, 'shallowWeights/epoch' + str(epoch))
+            torch.save(model, 'newNLN/epoch' + str(epoch))
 
 
 

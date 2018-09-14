@@ -28,7 +28,7 @@ import os
 
 
 os.environ["CUDA_DEVICE_ORDER"]="PCI_BUS_ID"
-os.environ["CUDA_VISIBLE_DEVICES"]="2"
+os.environ["CUDA_VISIBLE_DEVICES"]="3"
 
 
 
@@ -76,13 +76,13 @@ epochnum = 20000000
 
 #alpha=10
 
-model = flowGAN(20).cuda()
+model = flowGAN(60).cuda()
 optimizer = optim.Adam(model.parameters(), lr=1e-3)
 
 if __name__ == "__main__":
     trainingCurve = open('newNLNadv/curve', 'w')
     trainingCurve.write('Epoch\t\tLoss\n')
-    trainingCurve.close()
+    trainingCurve.close()  
     for epoch in range(epochnum):
         xu = Variable(d2.Column(batchsize)).cuda()
 #        print(model.fc.weight.data)
@@ -101,15 +101,15 @@ if __name__ == "__main__":
 #        print(xu[:10])
         print(yu[:10])
         print((math.log(2*math.pi) + lu + 0.5*torch.sum(yu*yu, 1))[:10])
-        yd, ld = model(xd)
+        yd, ld = model(xd.detach())
         pu = torch.exp(lu)
-        pd = torch.exp(ld)
+#        pd = torch.exp(ld)
 #        print(pd)
         
 #        loss = L(yu, target)#/batchsize # + torch.sum(ld)
         loss = 0 - torch.sum(lu) + torch.sum(ld)
 
-        print('loss = ' + str(loss))
+        print('adversarial dif = ' + str(loss))
         loss.backward()
         
         optimizer.step()
@@ -119,7 +119,6 @@ if __name__ == "__main__":
         pt = d2.columnVals(xu)
         print(pt[:5])
         print(pu[:5])
-        print(pd[:5])
         
         print(epoch)
         print('\n')

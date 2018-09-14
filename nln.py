@@ -31,10 +31,15 @@ import os
 os.environ["CUDA_DEVICE_ORDER"]="PCI_BUS_ID"
 os.environ["CUDA_VISIBLE_DEVICES"]="3"
 
-
+"""
 A = 20200./10000
 B = 201./10000
 C = 20201./10000
+"""
+
+A = 3./5
+B = 4./5
+C = 1
 
 def elSelect(a, b, p):
     """a if p > 0, b if p < 0"""
@@ -42,15 +47,6 @@ def elSelect(a, b, p):
     return a*s + b*(1-s)
 
 #func = nn.LeakyReLU(0.5)
-
-def func(x):
-    return (torch.sqrt((torch.abs(x) + B)**2 + A**2) - C)*torch.sign(x)
- 
-def der(x):
-    """The derivative"""
-    a = torch.abs(x)
-    return (a + B)/torch.sqrt((a + B)**2 + A**2)
-
 ########
 
 def inv(y):
@@ -65,16 +61,62 @@ class nLayer(nn.Module):
     def __init__(self, n, bias=True):
         super(nLayer, self).__init__()
         self.n = n
+        self.A2 = Parameter(torch.tensor(9./25))
+        self.A2.data.uniform_(5./25, 15./25)
+        self.B = Parameter(torch.tensor(4./5))
+        self.B.data.uniform_(3./5, 1.)
+
+        self.soft = torch.nn.Softmax()
+    
+    def func(self, x):
+        B1 = self.soft(self.B - 1e-2) + 1e-2
+        B  = 10 - self.soft(10 - B1)
+        C = torch.sqrt(torch.abs(self.A2) + B**2)
+        if self.A2 > 0:
+            return (torch.sqrt((torch.abs(x) + B)**2 + self.A2) - C)*torch.sign(x)
+        else:
+            return (torch.sqrt((torch.abs(x)+C)**2 + self.A2) - B)*torch.sign(x)
+ 
+    def der(self, x):
+        """The derivative"""
+        a = torch.abs(x)
+        #Differentiable clamping, to avoid nan's
+        B1 = self.soft(self.B - 1e-2) + 1e-2
+        B  = 10 - self.soft(10 - B1)
+        C = torch.sqrt(torch.abs(self.A2) + B**2)
+        if self.A2 > 0:
+            return (a + B)/torch.sqrt((a + B)**2 + self.A2)
+        else:
+            return (a + C)/torch.sqrt((a + C)**2 + self.A2)
+
+    def inv(self, y):
+        B1 = self.soft(self.B - 1e-2) + 1e-2
+        B  = 10 - self.soft(10 - B1)
+        C = torch.sqrt(torch.abs(self.A2) + B**2)
+        if self.A2 > 0:
+            return (torch.sqrt((torch.abs(y)+C)**2 - self.A2) - B)*torch.sign(y)
+        else:
+            return (torch.sqrt((torch.abs(y)+B)**2 - self.A2) - C)*torch.sign(y)
+    
+    def derInv(self, y):
+        a = torch.abs(x)
+        B1 = self.soft(self.B - 1e-2) + 1e-2
+        B  = 10 - self.soft(10 - B1)
+        C = torch.sqrt(torch.abs(self.A2) + B**2)
+        if self.A2 < 0:
+            return (a + B)/torch.sqrt((a + B)**2 - self.A2)
+        else:
+            return (a + C)/torch.sqrt((a + C)**2 - self.A2)
     
     def forward(self, x):
-        return func(x), torch.sum(torch.log(torch.abs(der(x))), 1)
+        return self.func(x), torch.sum(torch.log(torch.abs(self.der(x))), 1)
     
     def pushback(self, y):
-        x = inv(y.detach())
-        return x, torch.log(der(x))
+        x = self.inv(y.detach())
+        return x, torch.log(self.der(x))
 
 
-
+"""
 class backLayer(nn.Module):
     def __init__(self, n, bias=True):
         super(backLayer, self).__init__()
@@ -87,7 +129,7 @@ class backLayer(nn.Module):
     def pushback(self, y):
         x = func(y.detach())
         return x, 0-torch.log(der(y))
-
+"""
   
 
 

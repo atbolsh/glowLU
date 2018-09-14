@@ -1,5 +1,7 @@
 """
 Model of 2D Columns distribution.
+
+Uses GLOW.
 """
 
 import distribution2D as d2
@@ -7,6 +9,7 @@ import distribution2D as d2
 from nln import nLayer
 #from nln import backLayer
 from LU  import *
+from affine2Dorig import *
 
 from sklearn.datasets import load_boston
 
@@ -28,7 +31,7 @@ import os
 
 
 os.environ["CUDA_DEVICE_ORDER"]="PCI_BUS_ID"
-os.environ["CUDA_VISIBLE_DEVICES"]="2"
+os.environ["CUDA_VISIBLE_DEVICES"]="6"
 
 
 
@@ -39,20 +42,20 @@ class flowGAN(nn.Module):
         """Even n preferred"""
         super(flowGAN, self).__init__()
         self.lin = nn.ModuleList([LU(2) for i in range(n+1)])
-        hyp = []
+        aff = []
         for i in range(n):
             if i % 2 == 0:
-                hyp.append(nLayer(2))
+                aff.append(affine2(2, hidden=128))
             else:
-                hyp.append(nLayer(2))
-#                hyp.append(backLayer(2))
-        self.hyp = nn.ModuleList(hyp)
+                aff.append(affine2(2, hidden=128))
+#                aff.append(backLayer(2))
+        self.aff = nn.ModuleList(aff)
         self.n = n
  
     def forward(self, x):
         y, lJ = self.lin[0](x)
         for i in range(self.n):
-            y, nlJ = self.hyp[i](y)
+            y, nlJ = self.aff[i](y)
             lJ = nlJ + lJ
             y, nlJ = self.lin[i+1](y)
             lJ = lJ + nlJ
@@ -63,26 +66,26 @@ class flowGAN(nn.Module):
             x = Variable(torch.randn(n, 2)).cuda()
         x, _ = self.lin[-1].pushback(x)
         for i in range(1, self.n+1):
-            x, _ = self.hyp[-i].pushback(x)
+            x, _ = self.aff[-i].pushback(x)
             x, _ = self.lin[-1-i].pushback(x)
         return x
 
 
 
 
-batchsize = 100000
-epochnum = 20000000
+batchsize = 1000
+epochnum = 20000
 
 
 #alpha=10
 
-model = flowGAN(20).cuda()
+model = flowGAN(12).cuda()
 optimizer = optim.Adam(model.parameters(), lr=1e-3)
 
 if __name__ == "__main__":
-    trainingCurve = open('newNLNadv/curve', 'w')
+    trainingCurve = open('glowOrig/curve', 'w')
     trainingCurve.write('Epoch\t\tLoss\n')
-    trainingCurve.close()
+    trainingCurve.close()  
     for epoch in range(epochnum):
         xu = Variable(d2.Column(batchsize)).cuda()
 #        print(model.fc.weight.data)
@@ -101,35 +104,37 @@ if __name__ == "__main__":
 #        print(xu[:10])
         print(yu[:10])
         print((math.log(2*math.pi) + lu + 0.5*torch.sum(yu*yu, 1))[:10])
-        yd, ld = model(xd)
+        yd, ld = model(xd.detach())
         pu = torch.exp(lu)
-        pd = torch.exp(ld)
+#        pd = torch.exp(ld)
 #        print(pd)
         
 #        loss = L(yu, target)#/batchsize # + torch.sum(ld)
-        loss = 0 - torch.sum(lu) + torch.sum(ld)
+        loss = 0 - torch.sum(lu)# + torch.sum(ld)
 
-        print('loss = ' + str(loss))
         loss.backward()
         
         optimizer.step()
         
         model.eval()
-        
+        yu, lu = model(xu)
+#        print('adversarial dif = ' + str(torch.sum(ld) - torch.sum(lu)))
+       
         pt = d2.columnVals(xu)
         print(pt[:5])
         print(pu[:5])
-        print(pd[:5])
         
         print(epoch)
+#        print(model.aff[0].b.weight)
         print('\n')
         print('\n\n\n')
 
         if epoch%100 == 0:
-            torch.save(model, 'newNLNadv/epoch' + str(epoch))
-            trainingCurve = open('newNLNadv/curve', 'a')
+            torch.save(model, 'glowOrig/epoch' + str(epoch))
+            trainingCurve = open('glowOrig/curve', 'a')
             trainingCurve.write(str(epoch) + '\t\t' + str(loss) + '\n')
             trainingCurve.close()
+
 
 
 
