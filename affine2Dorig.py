@@ -19,7 +19,7 @@ import numpy as np
 
 
 class affine2(nn.Module):
-    def __init__(self, n, hidden=64, bias=True):
+    def __init__(self, n, hidden=128, bias=True):
         super(affine2, self).__init__()
 
         self.n = n
